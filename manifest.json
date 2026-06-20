@@ -1,0 +1,16 @@
+{
+  "name": "Oservice News",
+  "short_name": "Oservice News",
+  "start_url": "oservice-news.html",
+  "display": "standalone",
+  "background_color": "#EEF0F3",
+  "theme_color": "#FF5400",
+  "icons": [
+    {
+      "src": "oservice-icon.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}
