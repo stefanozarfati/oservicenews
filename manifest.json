@@ -1,6 +1,6 @@
 {
-  "name": "Oservice News",
-  "short_name": "Oservice News",
+  "name": "OService News",
+  "short_name": "OService News",
   "start_url": "oservice-news.html",
   "display": "standalone",
   "background_color": "#EEF0F3",

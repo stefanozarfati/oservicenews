@@ -3,12 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Oservice News</title>
+<title>OService News</title>
 <link rel="icon" type="image/png" href="oservice-icon.png">
 <link rel="apple-touch-icon" href="oservice-icon.png">
 <link rel="manifest" href="manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-title" content="Oservice News">
+<meta name="apple-mobile-web-app-title" content="OService News">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#FF5400">
 <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -40,12 +40,31 @@
   nav.levels button.active{background:#fff;color:var(--o2);box-shadow:0 2px 8px rgba(0,0,0,.12);}
   nav.levels button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
 
-  .localebar{display:none;gap:8px;margin-top:11px;}
+  .localebar{display:none;gap:8px;margin-top:11px;align-items:stretch;}
   .localebar.show{display:flex;}
-  .localebar input{flex:1;min-width:0;border:0;border-radius:11px;padding:11px 14px;font-family:"Hanken Grotesk",sans-serif;font-size:15px;color:var(--ink);background:#fff;}
-  .localebar input:focus-visible{outline:2px solid #fff;outline-offset:1px;}
-  .geo{border:0;background:rgba(255,255,255,.22);color:#fff;border-radius:11px;cursor:pointer;font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.04em;padding:0 13px;white-space:nowrap;font-weight:500;}
-  .geo:hover{background:rgba(255,255,255,.32);}
+  .inputwrap{position:relative;flex:1;min-width:0;}
+  .inputwrap input{width:100%;border:0;border-radius:11px;padding:11px 14px;font-family:"Hanken Grotesk",sans-serif;font-size:15px;color:var(--ink);background:#fff;}
+  .inputwrap input:focus-visible{outline:2px solid #fff;outline-offset:1px;}
+  .geo,.star{border:0;background:rgba(255,255,255,.22);color:#fff;border-radius:11px;cursor:pointer;font-weight:600;white-space:nowrap;}
+  .geo{font-family:"IBM Plex Mono",monospace;font-size:11px;letter-spacing:.04em;padding:0 13px;}
+  .star{font-size:18px;width:44px;}
+  .geo:hover,.star:hover{background:rgba(255,255,255,.32);}
+  .star.active{background:#fff;color:var(--o2);}
+
+  .sugg{position:absolute;top:calc(100% + 6px);left:0;right:0;background:#fff;border-radius:12px;box-shadow:0 10px 30px rgba(20,25,35,.2);overflow:hidden;z-index:30;display:none;}
+  .sugg.show{display:block;}
+  .sugg button{display:block;width:100%;text-align:left;border:0;background:#fff;padding:11px 14px;font-family:"Hanken Grotesk",sans-serif;font-size:15px;color:var(--ink);cursor:pointer;border-bottom:1px solid var(--line);}
+  .sugg button:last-child{border-bottom:0;}
+  .sugg button:hover,.sugg button.hl{background:#FFF4EC;}
+  .sugg .tag{font-family:"IBM Plex Mono",monospace;font-size:10px;color:var(--slate);margin-left:7px;}
+
+  .quick{display:none;flex-wrap:wrap;gap:7px;margin-top:11px;}
+  .quick.show{display:flex;}
+  .qchip{display:inline-flex;align-items:center;gap:0;background:rgba(255,255,255,.16);border-radius:999px;overflow:hidden;}
+  .qchip.fav{background:rgba(255,255,255,.28);}
+  .qlabel{border:0;background:transparent;color:#fff;font-family:"Hanken Grotesk",sans-serif;font-weight:600;font-size:12.5px;padding:7px 4px 7px 12px;cursor:pointer;}
+  .qx{border:0;background:transparent;color:rgba(255,255,255,.7);cursor:pointer;font-size:13px;padding:7px 10px 7px 6px;}
+  .qx:hover{color:#fff;}
 
   .body{padding:16px 16px 90px;}
   .toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:4px 2px 6px;}
@@ -112,13 +131,13 @@
   <header class="hd">
     <div class="brand">
       <span class="mark">
-        <img src="oservice-icon.png" alt="Oservice News" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+        <img src="oservice-icon.png" alt="OService News" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
         <svg viewBox="0 0 32 32" style="display:none" aria-hidden="true">
           <rect width="32" height="32" fill="#000"/>
           <path d="M32 7v18a7 7 0 0 1-7 7H7Z" fill="#FF5400"/>
         </svg>
       </span>
-      <div class="wordmark">Oservice <span>News</span></div>
+      <div class="wordmark">OService <span>News</span></div>
     </div>
     <p class="htag">Notizie al vaglio delle fonti, in italiano.</p>
 
@@ -129,9 +148,14 @@
     </nav>
 
     <div class="localebar" id="localebar">
-      <input id="placeInput" type="text" placeholder="Comune o zona (es. Cerveteri)" autocomplete="off">
-      <button class="geo" id="geoBtn">&#9678; Posizione</button>
+      <div class="inputwrap">
+        <input id="placeInput" type="text" placeholder="Comune o zona (es. Cerveteri)" autocomplete="off">
+        <div class="sugg" id="sugg"></div>
+      </div>
+      <button class="geo" id="geoBtn">&#9678;</button>
+      <button class="star" id="starBtn" title="Aggiungi ai preferiti" aria-label="Aggiungi ai preferiti">&#9734;</button>
     </div>
+    <div class="quick" id="quick"></div>
   </header>
 
   <div class="body">
@@ -152,15 +176,16 @@
     <details class="note">
       <summary>Come funziona e cosa garantisce</summary>
       <div class="nb">
-        <p>Oservice News legge <strong>Google News in edizione italiana</strong> tramite un relay pubblico. Le notizie arrivano in lingua italiana.</p>
-        <p><strong>Notizie locali:</strong> per i comuni del litorale nord di Roma (Cerveteri, Ladispoli, Santa Marinella e dintorni) l'app legge anche i feed diretti di <strong>BaraondaNews</strong> e <strong>L'Ortica</strong>, che Google News non indicizza. Per gli altri comuni usa solo Google News.</p>
-        <p><strong>Lettura libera:</strong> il badge verde &#128275; segnala fonti senza abbonamento. L'interruttore in alto vale per Nazionale e Mondo; in Locale &#232; disattivato per non escludere le testate del territorio.</p>
+        <p>OService News legge <strong>Google News in edizione italiana</strong> tramite un relay pubblico. Le notizie arrivano in lingua italiana.</p>
+        <p><strong>Notizie locali:</strong> per i comuni del litorale nord di Roma (Cerveteri, Ladispoli, Santa Marinella e dintorni) l'app legge anche i feed diretti di <strong>BaraondaNews</strong> e <strong>L'Ortica</strong>. Per gli altri comuni usa solo Google News. Comuni recenti e preferiti restano salvati sul tuo dispositivo.</p>
+        <p><strong>Lettura libera:</strong> badge verde &#128275; = fonte senza abbonamento. L'interruttore vale per Nazionale e Mondo; in Locale &#232; disattivato.</p>
         <p><strong>Affidabilit&#224;:</strong> pallino verde = fonte di una lista curata; ambra = fuori lista. Filtro di reputazione, non fact-checking.</p>
       </div>
     </details>
   </div>
 </div>
 
+<script src="comuni.js"></script>
 <script>
 const state={level:"nazionale",freeOnly:true};
 let lastItems=[];
@@ -170,24 +195,86 @@ const updated=document.getElementById("updated");
 const localebar=document.getElementById("localebar");
 const placeInput=document.getElementById("placeInput");
 const freeToggle=document.getElementById("freeToggle");
+const sugg=document.getElementById("sugg");
+const quick=document.getElementById("quick");
+const starBtn=document.getElementById("starBtn");
 
 const TRUSTED=["ansa","rai","corriere","repubblica","sole 24","il post","ilpost","sky tg","tgcom","internazionale","euronews","agi","adnkronos","askanews","avvenire","fatto quotidiano","la stampa","il messaggero","il giornale","open","wired","reuters","associated press","ap news","bbc","france 24","deutsche welle","dw","el pa","le monde","guardian","new york times","washington post","financial times","al jazeera","cnn","abc news","politico","the economist","nbc","baraonda","ortica","canale dieci","canaledieci"];
 const FREE=["ansa","rai","agi","adnkronos","askanews","euronews","tgcom","sky tg","open","today","ilpost","il post","fanpage","wired italia","bbc","france 24","al jazeera","deutsche welle","dw","reuters","ap news","associated press","euractiv","baraonda","ortica","canale dieci","canaledieci"];
-
-// Comuni del litorale nord con feed locali curati
 const ZONE=new Set(["cerveteri","ladispoli","santa-marinella","santa-severa","cerenova","campo-di-mare","marina-di-cerveteri","civitavecchia","fiumicino","bracciano","trevignano","trevignano-romano","anguillara","anguillara-sabazia","manziana"]);
+
+// elenco reale di comuni per i suggerimenti (zona + Lazio/Umbria + capoluoghi). Non esaustivo.
+const SUGGEST=["Cerveteri","Ladispoli","Santa Marinella","Santa Severa","Cerenova","Civitavecchia","Fiumicino","Bracciano","Trevignano Romano","Anguillara Sabazia","Manziana","Roma","Tivoli","Guidonia","Pomezia","Ardea","Anzio","Nettuno","Velletri","Albano Laziale","Frascati","Marino","Latina","Aprilia","Frosinone","Fiuggi","Anagni","Alatri","Ferentino","Veroli","Sora","Cassino","Viterbo","Tarquinia","Montefiascone","Rieti","Poggiodomo","Terni","Spoleto","Foligno","Perugia","Assisi","Norcia","Cascia","Milano","Napoli","Torino","Palermo","Genova","Bologna","Firenze","Bari","Catania","Venezia","Verona","Cagliari","Trieste","Brescia","Padova"];
+const FULL=(window.COMUNI_LIST&&window.COMUNI_LIST.length)?window.COMUNI_LIST.map(s=>{const i=s.indexOf("|");return i<0?{n:s,p:""}:{n:s.slice(0,i),p:s.slice(i+1)};}):SUGGEST.map(n=>({n,p:""}));
 
 function isTrusted(s){s=s.toLowerCase();return TRUSTED.some(x=>s.indexOf(x)>-1);}
 function isFree(s){s=s.toLowerCase();return FREE.some(x=>s.indexOf(x)>-1);}
 function slugify(s){return s.toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g,"").replace(/['\u2019]/g,"").replace(/\s+/g,"-");}
 
+// ---- archivio locale (recenti / preferiti) ----
+const FAV_KEY="osn_fav",REC_KEY="osn_rec";
+function lsGet(k){try{return JSON.parse(localStorage.getItem(k))||[];}catch(e){return[];}}
+function lsSet(k,v){try{localStorage.setItem(k,JSON.stringify(v));}catch(e){}}
+let favorites=lsGet(FAV_KEY),recents=lsGet(REC_KEY);
+function eqi(a,b){return a.toLowerCase()===b.toLowerCase();}
+function isFav(n){return favorites.some(x=>eqi(x,n));}
+function addRecent(n){recents=[n,...recents.filter(x=>!eqi(x,n))].slice(0,10);lsSet(REC_KEY,recents);}
+function toggleFav(n){if(isFav(n))favorites=favorites.filter(x=>!eqi(x,n));else favorites=[n,...favorites].slice(0,20);lsSet(FAV_KEY,favorites);}
+function removeFrom(n){favorites=favorites.filter(x=>!eqi(x,n));recents=recents.filter(x=>!eqi(x,n));lsSet(FAV_KEY,favorites);lsSet(REC_KEY,recents);}
+
 function syncToggle(){
   const loc=state.level==="locale";
-  freeToggle.disabled=loc;
-  freeToggle.classList.toggle("disabled",loc);
+  freeToggle.disabled=loc;freeToggle.classList.toggle("disabled",loc);
   if(loc){freeToggle.innerHTML="\uD83D\uDD13 In locale: tutte le fonti";}
   else{freeToggle.classList.toggle("on",state.freeOnly);freeToggle.innerHTML=(state.freeOnly?"\uD83D\uDD13 Solo lettura libera":"\uD83D\uDD13 Tutte le fonti");}
 }
+function syncStar(){const v=placeInput.value.trim();const on=v&&isFav(v);starBtn.classList.toggle("active",!!on);starBtn.innerHTML=on?"\u2605":"\u2606";}
+
+function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
+
+function renderQuick(){
+  if(state.level!=="locale"){quick.classList.remove("show");quick.innerHTML="";return;}
+  let html="";
+  favorites.forEach(n=>html+=`<span class="qchip fav"><button class="qlabel" data-go="${esc(n)}">\u2605 ${esc(n)}</button><button class="qx" data-rm="${esc(n)}" aria-label="rimuovi">\u2715</button></span>`);
+  recents.filter(n=>!isFav(n)).forEach(n=>html+=`<span class="qchip"><button class="qlabel" data-go="${esc(n)}">\u21BA ${esc(n)}</button><button class="qx" data-rm="${esc(n)}" aria-label="rimuovi">\u2715</button></span>`);
+  quick.innerHTML=html;
+  quick.classList.toggle("show",html.length>0);
+}
+
+quick.addEventListener("click",e=>{
+  const go=e.target.closest("[data-go]"),rm=e.target.closest("[data-rm]");
+  if(rm){removeFrom(rm.getAttribute("data-rm"));renderQuick();syncStar();return;}
+  if(go){placeInput.value=go.getAttribute("data-go");syncStar();hideSugg();load();}
+});
+
+// ---- suggerimenti digitazione ----
+function suggCandidates(){
+  const pool=[...favorites.map(n=>({n,p:""})),...recents.map(n=>({n,p:""})),...FULL];
+  const seen=new Set();const out=[];
+  pool.forEach(o=>{const k=o.n.toLowerCase();if(!seen.has(k)){seen.add(k);out.push(o);}});
+  return out;
+}
+function showSugg(){
+  const q=placeInput.value.trim().toLowerCase();
+  if(!q){hideSugg();return;}
+  const all=suggCandidates().filter(o=>o.n.toLowerCase().includes(q));
+  all.sort((a,b)=>{const ap=a.n.toLowerCase().startsWith(q)?0:1,bp=b.n.toLowerCase().startsWith(q)?0:1;if(ap!==bp)return ap-bp;return a.n.localeCompare(b.n);});
+  const matches=all.slice(0,8);
+  if(!matches.length){hideSugg();return;}
+  sugg.innerHTML=matches.map(o=>{
+    const n=o.n;
+    const tag=isFav(n)?'<span class="tag">\u2605</span>':(recents.some(r=>eqi(r,n))?'<span class="tag">\u21BA</span>':(o.p?'<span class="tag">'+esc(o.p)+'</span>':''));
+    return `<button data-go="${esc(n)}">${esc(n)}${tag}</button>`;
+  }).join("");
+  sugg.classList.add("show");
+}
+function hideSugg(){sugg.classList.remove("show");}
+sugg.addEventListener("mousedown",e=>{const b=e.target.closest("[data-go]");if(b){e.preventDefault();placeInput.value=b.getAttribute("data-go");syncStar();hideSugg();load();}});
+placeInput.addEventListener("input",()=>{syncStar();showSugg();});
+placeInput.addEventListener("focus",showSugg);
+placeInput.addEventListener("blur",()=>setTimeout(hideSugg,150));
+
+starBtn.addEventListener("click",()=>{const v=placeInput.value.trim();if(!v)return;toggleFav(v);syncStar();renderQuick();});
 
 document.querySelectorAll("nav.levels button").forEach(btn=>{
   btn.addEventListener("click",()=>{
@@ -195,30 +282,26 @@ document.querySelectorAll("nav.levels button").forEach(btn=>{
     btn.classList.add("active");btn.setAttribute("aria-selected","true");
     state.level=btn.dataset.level;
     localebar.classList.toggle("show",state.level==="locale");
-    syncToggle();
+    syncToggle();renderQuick();syncStar();hideSugg();
   });
 });
 
-freeToggle.addEventListener("click",()=>{
-  if(freeToggle.disabled) return;
-  state.freeOnly=!state.freeOnly;syncToggle();
-  if(lastItems.length) render(lastItems);
-});
+freeToggle.addEventListener("click",()=>{if(freeToggle.disabled)return;state.freeOnly=!state.freeOnly;syncToggle();if(lastItems.length)render(lastItems);});
 
 document.getElementById("geoBtn").addEventListener("click",()=>{
   const g=document.getElementById("geoBtn");
   if(!navigator.geolocation){placeInput.placeholder="Scrivi il comune";return;}
-  g.textContent="Localizzo\u2026";
+  g.textContent="\u2026";
   navigator.geolocation.getCurrentPosition(async pos=>{
     const {latitude,longitude}=pos.coords;
     try{
       const r=await fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${latitude}&longitude=${longitude}&localityLanguage=it`);
       const d=await r.json();
       const loc=d.city||d.locality||d.principalSubdivision||"";
-      if(loc){placeInput.value=loc;g.textContent="\u25CE "+loc;}else g.textContent="Non rilevato";
-    }catch(e){g.textContent="Errore";}
-    setTimeout(()=>{g.textContent="\u25CE Posizione";},2600);
-  },()=>{g.textContent="Permesso negato";setTimeout(()=>{g.textContent="\u25CE Posizione";},2600);},{timeout:10000});
+      if(loc){placeInput.value=loc;syncStar();}
+    }catch(e){}
+    g.innerHTML="\u25CE";
+  },()=>{g.innerHTML="\u25CE";},{timeout:10000});
 });
 
 function googleUrl(){
@@ -246,7 +329,6 @@ async function fetchText(target){
   throw new Error("relay");
 }
 
-function esc(s){return String(s==null?"":s).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));}
 function fmtDate(d){const t=new Date(d);if(isNaN(t))return"";return t.toLocaleString("it-IT",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});}
 function ts(a){const t=new Date(a.pub);return isNaN(t)?0:t.getTime();}
 
@@ -275,10 +357,9 @@ function render(items){
     else list.sort((a,b)=>(isFree(b.source)?1:0)-(isFree(a.source)?1:0));
   }
   list=list.slice(0,10);
-
   if(!list.length){
     let msg;
-    if(loc) msg=`<div class="state"><div class="ic">&#128205;</div><div class="big">Nessuna notizia per questa zona</div><div class="sub">Per ora i feed locali diretti coprono il litorale nord di Roma. Per altre zone usa Nazionale o indicami le testate.</div></div>`;
+    if(loc) msg=`<div class="state"><div class="ic">&#128205;</div><div class="big">Nessuna notizia per questa zona</div><div class="sub">I feed locali diretti coprono il litorale nord di Roma. Per altre zone usa Nazionale o indicami le testate.</div></div>`;
     else if(state.freeOnly) msg=`<div class="state"><div class="ic">&#128274;</div><div class="big">Nessuna fonte a lettura libera qui</div><div class="sub">Tocca l'interruttore in alto per vedere tutte le fonti.</div></div>`;
     else msg=`<div class="state"><div class="ic">&#128269;</div><div class="big">Nessuna notizia trovata</div><div class="sub">Prova un altro livello o un comune diverso.</div></div>`;
     feed.innerHTML=msg;return;
@@ -290,18 +371,7 @@ function render(items){
     const free=isFree(a.source);
     const acc=free?`<span class="acc free">&#128275; libera</span>`:`<span class="acc pay">&#128274; pu\u00F2 chiedere abbonamento</span>`;
     const srcChip=a.local?`<span class="chip local">&#128205; ${esc(a.source)}</span>`:`<span class="chip src">${esc(a.source)}</span>`;
-    return `<article class="item">
-      <div class="meta">
-        ${srcChip}
-        <span class="aff"><span class="pip ${aff}"></span>${affLabel}</span>
-        ${acc}
-      </div>
-      <h2 class="head">${esc(a.title)}</h2>
-      <div class="foot">
-        <span class="lang">${a.pub?fmtDate(a.pub):"it"}</span>
-        <a class="read" href="${esc(a.link)}" target="_blank" rel="noopener noreferrer">Leggi la fonte &rarr;</a>
-      </div>
-    </article>`;
+    return `<article class="item"><div class="meta">${srcChip}<span class="aff"><span class="pip ${aff}"></span>${affLabel}</span>${acc}</div><h2 class="head">${esc(a.title)}</h2><div class="foot"><span class="lang">${a.pub?fmtDate(a.pub):"it"}</span><a class="read" href="${esc(a.link)}" target="_blank" rel="noopener noreferrer">Leggi la fonte &rarr;</a></div></article>`;
   }).join("");
 }
 
@@ -309,12 +379,13 @@ function skeleton(){let s="";for(let i=0;i<4;i++)s+=`<div class="sk"><div class=
 
 async function load(){
   if(state.level==="locale" && !placeInput.value.trim()){
-    feed.innerHTML=`<div class="state"><div class="ic">&#128205;</div><div class="big">Indica un comune</div><div class="sub">Scrivilo o usa la tua posizione.</div></div>`;return;
+    feed.innerHTML=`<div class="state"><div class="ic">&#128205;</div><div class="big">Indica un comune</div><div class="sub">Scrivilo, scegli un suggerimento o usa la posizione.</div></div>`;return;
   }
   loadBtn.disabled=true;updated.textContent="carico\u2026";skeleton();
   try{
     if(state.level==="locale"){
-      const slug=slugify(placeInput.value.trim());
+      const place=placeInput.value.trim();
+      const slug=slugify(place);
       const tasks=[fetchText(googleUrl()).then(x=>parseItems(x,null)).catch(()=>[])];
       if(ZONE.has(slug)){
         tasks.push(fetchText(`https://baraondanews.it/tag/${slug}/feed/`).then(x=>parseItems(x,"BaraondaNews")).catch(()=>[]));
@@ -324,6 +395,7 @@ async function load(){
       let items=[];parts.forEach(p=>items=items.concat(p));
       items=dedupe(items).sort((a,b)=>ts(b)-ts(a));
       lastItems=items;render(items);
+      if(items.length){addRecent(place);renderQuick();}
     }else{
       const xml=await fetchText(googleUrl());
       lastItems=parseItems(xml,null);render(lastItems);
@@ -336,8 +408,8 @@ async function load(){
 }
 
 loadBtn.addEventListener("click",load);
-placeInput.addEventListener("keydown",e=>{if(e.key==="Enter")load();});
-syncToggle();
+placeInput.addEventListener("keydown",e=>{if(e.key==="Enter"){hideSugg();load();}});
+syncToggle();renderQuick();syncStar();
 </script>
 </body>
 </html>
