@@ -311,18 +311,27 @@ function googleUrl(){
   return `${base}?${tail}`;
 }
 
+// >>> Incolla qui l'URL del tuo Cloudflare Worker per un caricamento affidabile.
+//     Esempio: const PROXY="https://oservice-news-proxy.tuonome.workers.dev";
+//     Lascia "" per usare solo i relay pubblici (meno affidabili).
+const PROXY="";
+
+function fetchWithTimeout(u,ms){
+  const ctrl=new AbortController();const id=setTimeout(()=>ctrl.abort(),ms);
+  return fetch(u,{signal:ctrl.signal}).finally(()=>clearTimeout(id));
+}
 async function fetchText(target){
-  const proxies=[
-    u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,
-    u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,
-    u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`
-  ];
-  for(let i=0;i<proxies.length;i++){
+  const builders=[];
+  if(PROXY) builders.push({f:u=>`${PROXY.replace(/\/$/,"")}/?url=${encodeURIComponent(u)}`,json:false});
+  builders.push({f:u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,json:false});
+  builders.push({f:u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,json:false});
+  builders.push({f:u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,json:true});
+  for(const b of builders){
     try{
-      const r=await fetch(proxies[i](target));
+      const r=await fetchWithTimeout(b.f(target),8000);
       if(!r.ok) continue;
       let t=await r.text();
-      if(i===2){ try{ t=JSON.parse(t).contents; }catch(_){} }
+      if(b.json){ try{ t=JSON.parse(t).contents; }catch(_){} }
       if(t && t.indexOf("<item")>-1) return t;
     }catch(e){}
   }
