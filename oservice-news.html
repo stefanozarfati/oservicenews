@@ -40,6 +40,14 @@
   nav.levels button.active{background:#fff;color:var(--o2);box-shadow:0 2px 8px rgba(0,0,0,.12);}
   nav.levels button:focus-visible{outline:2px solid #fff;outline-offset:2px;}
 
+  .searchbar{display:flex;gap:8px;margin-top:16px;}
+  .searchbar .sw{position:relative;flex:1;min-width:0;}
+  .searchbar input{width:100%;border:0;border-radius:12px;padding:12px 14px;font-family:"Hanken Grotesk",sans-serif;font-size:15px;color:var(--ink);background:#fff;}
+  .searchbar input:focus-visible{outline:2px solid #fff;outline-offset:1px;}
+  .sbtn{border:0;background:rgba(255,255,255,.22);color:#fff;border-radius:12px;cursor:pointer;font-size:17px;width:48px;flex:none;transition:background .15s;}
+  .sbtn:hover{background:rgba(255,255,255,.32);}
+  .sbtn:focus-visible{outline:2px solid #fff;outline-offset:2px;}
+
   .localebar{display:none;gap:8px;margin-top:11px;align-items:stretch;}
   .localebar.show{display:flex;}
   .inputwrap{position:relative;flex:1;min-width:0;}
@@ -141,6 +149,13 @@
     </div>
     <p class="htag">Notizie al vaglio delle fonti, in italiano.</p>
 
+    <div class="searchbar">
+      <div class="sw">
+        <input id="qInput" type="search" placeholder="Cerca una notizia (es. terremoto)" autocomplete="off" enterkeyhint="search">
+      </div>
+      <button class="sbtn" id="qBtn" aria-label="Cerca">&#128269;</button>
+    </div>
+
     <nav class="levels" role="tablist" aria-label="Livello">
       <button data-level="locale" role="tab">Locale</button>
       <button data-level="nazionale" role="tab" class="active" aria-selected="true">Nazionale</button>
@@ -177,6 +192,7 @@
       <summary>Come funziona e cosa garantisce</summary>
       <div class="nb">
         <p>OService News legge <strong>Google News in edizione italiana</strong> tramite un relay pubblico. Le notizie arrivano in lingua italiana.</p>
+        <p><strong>Ricerca:</strong> la barra in alto cerca ovunque (indipendente dal livello). I risultati sono ordinati con un punteggio che combina <strong>pertinenza</strong> delle parole, <strong>attualit&#224;</strong> (le pi&#249; recenti pesano di pi&#249;) e affidabilit&#224; della fonte.</p>
         <p><strong>Notizie locali:</strong> per i comuni del litorale nord di Roma (Cerveteri, Ladispoli, Santa Marinella e dintorni) l'app legge anche i feed diretti di <strong>BaraondaNews</strong> e <strong>L'Ortica</strong>. Per gli altri comuni usa solo Google News. Comuni recenti e preferiti restano salvati sul tuo dispositivo.</p>
         <p><strong>Lettura libera:</strong> badge verde &#128275; = fonte senza abbonamento. L'interruttore vale per Nazionale e Mondo; in Locale &#232; disattivato.</p>
         <p><strong>Affidabilit&#224;:</strong> pallino verde = fonte di una lista curata; ambra = fuori lista. Filtro di reputazione, non fact-checking.</p>
@@ -187,7 +203,7 @@
 
 <script src="comuni.js"></script>
 <script>
-const state={level:"nazionale",freeOnly:true};
+const state={level:"nazionale",freeOnly:true,mode:"level",query:""};
 let lastItems=[];
 const feed=document.getElementById("feed");
 const loadBtn=document.getElementById("loadBtn");
@@ -198,6 +214,8 @@ const freeToggle=document.getElementById("freeToggle");
 const sugg=document.getElementById("sugg");
 const quick=document.getElementById("quick");
 const starBtn=document.getElementById("starBtn");
+const qInput=document.getElementById("qInput");
+const qBtn=document.getElementById("qBtn");
 
 const TRUSTED=["ansa","rai","corriere","repubblica","sole 24","il post","ilpost","sky tg","tgcom","internazionale","euronews","agi","adnkronos","askanews","avvenire","fatto quotidiano","la stampa","il messaggero","il giornale","open","wired","reuters","associated press","ap news","bbc","france 24","deutsche welle","dw","el pa","le monde","guardian","new york times","washington post","financial times","al jazeera","cnn","abc news","politico","the economist","nbc","baraonda","ortica","canale dieci","canaledieci"];
 const FREE=["ansa","rai","agi","adnkronos","askanews","euronews","tgcom","sky tg","open","today","ilpost","il post","fanpage","wired italia","bbc","france 24","al jazeera","deutsche welle","dw","reuters","ap news","associated press","euractiv","baraonda","ortica","canale dieci","canaledieci"];
@@ -280,9 +298,11 @@ document.querySelectorAll("nav.levels button").forEach(btn=>{
   btn.addEventListener("click",()=>{
     document.querySelectorAll("nav.levels button").forEach(b=>{b.classList.remove("active");b.removeAttribute("aria-selected");});
     btn.classList.add("active");btn.setAttribute("aria-selected","true");
-    state.level=btn.dataset.level;
+    const wasSearch=state.mode==="search";
+    state.mode="level";state.level=btn.dataset.level;
     localebar.classList.toggle("show",state.level==="locale");
     syncToggle();renderQuick();syncStar();hideSugg();
+    if(wasSearch) load();
   });
 });
 
@@ -311,10 +331,9 @@ function googleUrl(){
   return `${base}?${tail}`;
 }
 
-// >>> Incolla qui l'URL del tuo Cloudflare Worker per un caricamento affidabile.
-//     Esempio: const PROXY="https://oservice-news-proxy.tuonome.workers.dev";
+// >>> Endpoint della funzione Vercel (proxy CORS dedicato alle news).
 //     Lascia "" per usare solo i relay pubblici (meno affidabili).
-const PROXY="";
+const PROXY="https://oservicenews-proxy.vercel.app/api/fetch";
 
 function fetchWithTimeout(u,ms){
   const ctrl=new AbortController();const id=setTimeout(()=>ctrl.abort(),ms);
@@ -322,7 +341,7 @@ function fetchWithTimeout(u,ms){
 }
 async function fetchText(target){
   const builders=[];
-  if(PROXY) builders.push({f:u=>`${PROXY.replace(/\/$/,"")}/?url=${encodeURIComponent(u)}`,json:false});
+  if(PROXY) builders.push({f:u=>`${PROXY}${PROXY.includes("?")?"&":"?"}url=${encodeURIComponent(u)}`,json:false});
   builders.push({f:u=>`https://corsproxy.io/?url=${encodeURIComponent(u)}`,json:false});
   builders.push({f:u=>`https://api.allorigins.win/raw?url=${encodeURIComponent(u)}`,json:false});
   builders.push({f:u=>`https://api.allorigins.win/get?url=${encodeURIComponent(u)}`,json:true});
@@ -341,10 +360,10 @@ async function fetchText(target){
 function fmtDate(d){const t=new Date(d);if(isNaN(t))return"";return t.toLocaleString("it-IT",{hour:"2-digit",minute:"2-digit",day:"2-digit",month:"2-digit"});}
 function ts(a){const t=new Date(a.pub);return isNaN(t)?0:t.getTime();}
 
-function parseItems(xmlText,defaultSource){
+function parseItems(xmlText,defaultSource,maxN){
   const xml=new DOMParser().parseFromString(xmlText,"text/xml");
   const channelTitle=(xml.querySelector("channel>title")?.textContent||"").trim();
-  const nodes=[...xml.querySelectorAll("item")].slice(0,15);
+  const nodes=[...xml.querySelectorAll("item")].slice(0,maxN||15);
   return nodes.map(it=>{
     let title=(it.querySelector("title")?.textContent||"").trim();
     const link=(it.querySelector("link")?.textContent||"").trim();
@@ -360,15 +379,19 @@ function dedupe(arr){const seen=new Set();return arr.filter(a=>{const k=(a.title
 
 function render(items){
   let list=items.slice();
-  const loc=state.level==="locale";
+  const searching=state.mode==="search";
+  const loc=!searching && state.level==="locale";
   if(!loc){
     if(state.freeOnly) list=list.filter(a=>isFree(a.source));
-    else list.sort((a,b)=>(isFree(b.source)?1:0)-(isFree(a.source)?1:0));
+    else if(!searching) list.sort((a,b)=>(isFree(b.source)?1:0)-(isFree(a.source)?1:0));
   }
-  list=list.slice(0,10);
+  list=list.slice(0,searching?15:10);
   if(!list.length){
     let msg;
-    if(loc) msg=`<div class="state"><div class="ic">&#128205;</div><div class="big">Nessuna notizia per questa zona</div><div class="sub">I feed locali diretti coprono il litorale nord di Roma. Per altre zone usa Nazionale o indicami le testate.</div></div>`;
+    if(searching) msg=state.freeOnly
+      ?`<div class="state"><div class="ic">&#128274;</div><div class="big">Nessuna fonte a lettura libera</div><div class="sub">Per &laquo;${esc(state.query)}&raquo; non ci sono fonti libere. Tocca l'interruttore in alto per vedere tutte le fonti.</div></div>`
+      :`<div class="state"><div class="ic">&#128269;</div><div class="big">Nessun risultato</div><div class="sub">Nessuna notizia trovata per &laquo;${esc(state.query)}&raquo;. Prova un altro termine.</div></div>`;
+    else if(loc) msg=`<div class="state"><div class="ic">&#128205;</div><div class="big">Nessuna notizia per questa zona</div><div class="sub">I feed locali diretti coprono il litorale nord di Roma. Per altre zone usa Nazionale o indicami le testate.</div></div>`;
     else if(state.freeOnly) msg=`<div class="state"><div class="ic">&#128274;</div><div class="big">Nessuna fonte a lettura libera qui</div><div class="sub">Tocca l'interruttore in alto per vedere tutte le fonti.</div></div>`;
     else msg=`<div class="state"><div class="ic">&#128269;</div><div class="big">Nessuna notizia trovata</div><div class="sub">Prova un altro livello o un comune diverso.</div></div>`;
     feed.innerHTML=msg;return;
@@ -416,7 +439,48 @@ async function load(){
   }finally{loadBtn.disabled=false;}
 }
 
-loadBtn.addEventListener("click",load);
+// ---- ricerca notizie (globale, per rilevanza + attualità) ----
+function norm(s){return String(s==null?"":s).toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g,"");}
+function searchUrl(q){return `https://news.google.com/rss/search?q=${encodeURIComponent(q)}&hl=it&gl=IT&ceid=IT:it`;}
+function scoreSearch(items,query){
+  const terms=norm(query).split(/\s+/).filter(t=>t.length>=2);
+  const now=Date.now();
+  return items.map(a=>{
+    const t=norm(a.title);
+    let hits=0,cover=0;
+    terms.forEach(term=>{const c=t.split(term).length-1;if(c>0){cover++;hits+=c;}});
+    const coverage=terms.length?cover/terms.length:0;
+    const freqBonus=Math.min(hits,3)/3;
+    const relevance=terms.length?(0.75*coverage+0.25*freqBonus):0.5;
+    const ageH=Math.max(0,(now-(new Date(a.pub).getTime()||now))/36e5);
+    const recency=Math.exp(-ageH/72);
+    const authority=isTrusted(a.source)?1:0.5;
+    a._score=0.45*relevance+0.40*recency+0.15*authority;
+    return a;
+  }).sort((x,y)=>y._score-x._score);
+}
+async function runSearch(){
+  const q=qInput.value.trim();
+  if(!q){qInput.focus();return;}
+  state.mode="search";state.query=q;hideSugg();
+  loadBtn.disabled=true;qBtn.disabled=true;updated.textContent="cerco\u2026";skeleton();
+  try{
+    const xml=await fetchText(searchUrl(q));
+    let items=dedupe(parseItems(xml,null,40));
+    items=scoreSearch(items,q);
+    lastItems=items;render(items);
+    updated.textContent=items.length
+      ?`risultati per \u00AB${q}\u00BB \u00B7 `+new Date().toLocaleString("it-IT",{hour:"2-digit",minute:"2-digit"})
+      :`nessun risultato per \u00AB${q}\u00BB`;
+  }catch(e){
+    feed.innerHTML=`<div class="state err"><div class="ic">&#9888;&#65039;</div><div class="big">Ricerca non riuscita</div><div class="sub">Il canale potrebbe essere occupato. Riprova tra poco.</div></div>`;
+    updated.textContent="errore";
+  }finally{loadBtn.disabled=false;qBtn.disabled=false;}
+}
+qBtn.addEventListener("click",runSearch);
+qInput.addEventListener("keydown",e=>{if(e.key==="Enter"){e.preventDefault();runSearch();}});
+
+loadBtn.addEventListener("click",()=>{state.mode==="search"?runSearch():load();});
 placeInput.addEventListener("keydown",e=>{if(e.key==="Enter"){hideSugg();load();}});
 syncToggle();renderQuick();syncStar();
 </script>
